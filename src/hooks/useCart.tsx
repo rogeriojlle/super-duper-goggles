@@ -22,27 +22,49 @@ interface CartContextData {
 const CartContext = createContext<CartContextData>({} as CartContextData);
 
 export function CartProvider({ children }: CartProviderProps): JSX.Element {
-  const [cart, setCart] = useState<Product[]>(() => {
-    // const storagedCart = Buscar dados do localStorage
+  //funcoes auxiliares para manipular o carrinho de compras
 
-    // if (storagedCart) {
-    //   return JSON.parse(storagedCart);
-    // }
+  const localStore = {
+    _cart: localStorage.getItem('@RocketShoes:cart'),
+    get() {
+      if (this._cart) return JSON.parse(this._cart);
+      return [];
+    },
+    set(val: Product[]) {
+      val.sort((a, b) => a.id - b.id);
+      localStorage.setItem('@RocketShoes:cart', JSON.stringify(val));
+      setCart(val);
+    },
+    updateProduct(product: Product) {
+      this.set([...cart.filter(({ id }) => id !== product.id), product]);
+    },
+  };
 
-    return [];
-  });
+  const [cart, setCart] = useState<Product[]>(() => localStore.get());
 
   const addProduct = async (productId: number) => {
     try {
-      // TODO
-    } catch {
-      // TODO
+      let product;
+      product = cart.find(({ id }) => id === productId);
+      if (!product) {
+        const res = await api.get(`/products/${productId}`);
+        if (res.data.id) {
+          product = { ...res.data, amount: 0 };
+        } else {
+          throw res;
+        }
+      }
+      product.amount++;
+      localStore.updateProduct(product);
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro na adição do produto');
     }
   };
 
   const removeProduct = (productId: number) => {
     try {
-      // TODO
+      localStore.set(cart.filter(({ id }) => id !== productId));
     } catch {
       // TODO
     }
@@ -53,7 +75,10 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
-      // TODO
+      let product = cart.find(({ id }) => id === productId);
+      if (product) {
+        localStore.updateProduct({ ...product, amount });
+      }
     } catch {
       // TODO
     }
